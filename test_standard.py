@@ -22,21 +22,23 @@ use_gpu = torch.cuda.is_available()
 
 
 def centerDatas(datas):
-    datas[:, :n_lsamples] = datas[:, :n_lsamples, :] - datas[:, :n_lsamples].mean(1, keepdim=True)
-    datas[:, :n_lsamples] = datas[:, :n_lsamples, :] / torch.norm(datas[:, :n_lsamples, :], 2, 2)[:, :, None]
-    datas[:, n_lsamples:] = datas[:, n_lsamples:, :] - datas[:, n_lsamples:].mean(1, keepdim=True)
-    datas[:, n_lsamples:] = datas[:, n_lsamples:, :] / torch.norm(datas[:, n_lsamples:, :], 2, 2)[:, :, None]
-   
+    # datas[:, :n_lsamples] = datas[:, :n_lsamples, :] - datas[:, :n_lsamples].mean(1, keepdim=True)
+    # datas[:, :n_lsamples] = datas[:, :n_lsamples, :] / torch.norm(datas[:, :n_lsamples, :], 2, 2)[:, :, None]
+    # datas[:, n_lsamples:] = datas[:, n_lsamples:, :] - datas[:, n_lsamples:].mean(1, keepdim=True)
+    # datas[:, n_lsamples:] = datas[:, n_lsamples:, :] / torch.norm(datas[:, n_lsamples:, :], 2, 2)[:, :, None]
+
+    # centre of mass of all data support + querries
+    datas[:, :] = datas[:, :, :] - datas[:, :].mean(1, keepdim=True)
+    datas[:, :] = datas[:, :, :] / torch.norm(datas[:, :, :], 2, 2)[:, :, None]
     return datas
 
 def scaleEachUnitaryDatas(datas):
-  
+   # print(datas.shape)
     norms = datas.norm(dim=2, keepdim=True)
     return datas/norms
 
 
 def QRreduction(datas):
-    
     ndatas = torch.qr(datas.permute(0,2,1)).R
     ndatas = ndatas.permute(0,2,1)
     return ndatas
@@ -177,10 +179,10 @@ class MAP:
 
 if __name__ == '__main__':
 # ---- data loading
-    n_shot = 5
+    n_shot = 1
     n_ways = 5
     n_queries = 15
-    n_runs=10000
+    n_runs=1000
     n_lsamples = n_ways * n_shot
     n_usamples = n_ways * n_queries
     n_samples = n_lsamples + n_usamples
@@ -192,26 +194,30 @@ if __name__ == '__main__':
     ndatas = FSLTask.GenerateRunSet(cfg=cfg)
     ndatas = ndatas.permute(0,2,1,3).reshape(n_runs, n_samples, -1)
     labels = torch.arange(n_ways).view(1,1,n_ways).expand(n_runs,n_shot+n_queries,5).clone().view(n_runs, n_samples)
-    
+
+
+
     # Power transform
     beta = 0.5
     ndatas[:,] = torch.pow(ndatas[:,]+1e-6, beta)
 
-    ndatas = QRreduction(ndatas)
+    #ndatas = QRreduction(ndatas)
     n_nfeat = ndatas.size(2)
-    
+    print(ndatas.shape)
+
     ndatas = scaleEachUnitaryDatas(ndatas)
 
     # trans-mean-sub
-   
+
     ndatas = centerDatas(ndatas)
     
     print("size of the datas...", ndatas.size())
 
+
+
     # switch to cuda
     ndatas = ndatas.cuda()
     labels = labels.cuda()
-    
     #MAP
     lam = 10
     model = GaussianModel(n_ways, lam)
