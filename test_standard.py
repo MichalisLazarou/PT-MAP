@@ -13,6 +13,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from numpy import linalg as LA
 from tqdm.notebook import tqdm
+import my_code as michalis
+
 
 use_gpu = torch.cuda.is_available()
 
@@ -72,19 +74,32 @@ class GaussianModel(Model):
         self.mus = self.mus + alpha * (Dmus)
 
     def compute_optimal_transport(self, M, r, c, epsilon=1e-6):
-        
+        #r is the P we discussed r.shape = n_runs x total_queries, all entries = 1
         r = r.cuda()
+        # c is the q we discussed c.shape = n_runs x n_ways, all entries = 15
         c = c.cuda()
+        #print(M[0,:5])
         n_runs, n, m = M.shape
+
+        # doing the temperature T exponential here, M is distances
         P = torch.exp(- self.lam * M)
+        #print(P[0, :5])
+        #print("M and P shape: ", P.shape, M.shape, " n: ", n, " m: ", m)
+        # adding up all the distances of  all the queries to every class center
+        # and divide each component of P matrix with it, why??? is it to make it into probability
+        #distribution
         P /= P.view((n_runs, -1)).sum(1).unsqueeze(1).unsqueeze(1)
-                                         
+        #print(P.view((n_runs, -1)).shape)
         u = torch.zeros(n_runs, n).cuda()
         maxiters = 1000
         iters = 1
         # normalize this matrix
         while torch.max(torch.abs(u - P.sum(2))) > epsilon:
+           # print(r.shape, c.shape, u.shape, P.sum(1).shape, P.sum(2).shape)
             u = P.sum(2)
+            #print(u[0])
+            #print(r[0])
+            #print(c[0])
             P *= (r / u).view((n_runs, -1, 1))
             P *= (c / P.sum(1)).view((n_runs, 1, -1))
             if iters == maxiters:
@@ -101,6 +116,7 @@ class GaussianModel(Model):
         c = torch.ones(n_runs, n_ways) * n_queries
        
         p_xj_test, _ = self.compute_optimal_transport(dist[:, n_lsamples:], r, c, epsilon=1e-6)
+        #print(p_xj_test.shape)
         p_xj[:, n_lsamples:] = p_xj_test
         
         p_xj[:,:n_lsamples].fill_(0)
@@ -200,17 +216,18 @@ if __name__ == '__main__':
     # Power transform
     beta = 0.5
     ndatas[:,] = torch.pow(ndatas[:,]+1e-6, beta)
-
+    print(ndatas.type())
     #ndatas = QRreduction(ndatas)
     n_nfeat = ndatas.size(2)
-    print(ndatas.shape)
-
+    # print(ndatas.shape)
+    #
+    #
     ndatas = scaleEachUnitaryDatas(ndatas)
-
+    ndatas = centerDatas(ndatas)
     # trans-mean-sub
 
-    ndatas = centerDatas(ndatas)
-    
+
+
     print("size of the datas...", ndatas.size())
 
 
@@ -218,6 +235,7 @@ if __name__ == '__main__':
     # switch to cuda
     ndatas = ndatas.cuda()
     labels = labels.cuda()
+    #print(labels[0])
     #MAP
     lam = 10
     model = GaussianModel(n_ways, lam)
@@ -228,10 +246,14 @@ if __name__ == '__main__':
 
     optim.verbose=False
     optim.progressBar=True
-
+    #print(ndatas[:,:n_lsamples].shape, labels[:,:n_lsamples].shape, ndatas[:,n_lsamples:].shape, labels[:,n_lsamples:].shape)
     acc_test = optim.loop(model, n_epochs=20)
+    acc_mine, acc_std = michalis.my_method(ndatas, labels,n_lsamples)
+
     
-    print("final accuracy found {:0.2f} +- {:0.2f}".format(*(100*x for x in acc_test)))
+    print("final accuracy PT-MAP: {:0.2f} +- {:0.2f}".format(*(100*x for x in acc_test)))
+    print('final accuracy label propagation: {:0.2f} +- {:0.2f}'.format(acc_mine*100, acc_std*100))
+
     
     
 

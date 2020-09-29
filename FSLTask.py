@@ -11,7 +11,7 @@ _datasetFeaturesFiles = {"miniimagenet": "./checkpoints/miniImagenet/WideResNet2
                          "cifar": "./checkpoints/cifar/WideResNet28_10_S2M2_R/last/output.plk",
                          "cross": "./checkpoints/cross/WideResNet28_10_S2M2_R/last/output.plk"}
 _cacheDir = "./cache"
-_maxRuns = 10000
+_maxRuns = 1000
 _min_examples = -1
 
 # ========================================================
