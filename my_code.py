@@ -11,13 +11,13 @@ from sklearn.manifold import LocallyLinearEmbedding, SpectralEmbedding, Isomap
 from scipy.stats import t
 import torch.nn.functional as F
 
-def update_plabels(support, support_ys, query):
+def update_plabels(support, support_ys, query, i = 0):
     max_iter = 20
     no_classes = support_ys.max() + 1
 
     X = np.concatenate((support, query), axis=0)
-    k =30# X.shape[0]-1 #
-    alpha = 0.4
+    k = 30
+    alpha = 0.2
     labels = np.zeros(X.shape[0])
     labels[:support_ys.shape[0]]= support_ys
     labeled_idx = np.arange(support.shape[0])
@@ -201,8 +201,8 @@ def label_denoising(support, support_ys, query, query_ys_pred):
 def update_embeddings(support, support_ys, query):
     max_iter = 20
     no_classes = support_ys.max() + 1
-    k = 10
-    alpha = 0.7
+    k = 40
+    alpha = 0.2
     X = np.concatenate((support, query), axis=0)
     labels = np.zeros(X.shape[0])
     labels[:support_ys.shape[0]]= support_ys
@@ -371,18 +371,19 @@ def selectively_update_embeddings(support_features, support_ys, query_features, 
 def iter_balanced(support_features, support_ys, query_features, query_ys, labelled_samples):
     query_ys_updated = query_ys
     new_support_features, new_query_features = support_features, query_features
-    for j in range(int(query_ys.shape[0] / 5)):
-        query_ys_pred, probs = update_plabels(support_features, support_ys, query_features)
+    iterations = int(query_ys.shape[0] / 15)
+    for j in range(iterations):
+        query_ys_pred, probs = update_plabels(support_features, support_ys, query_features, i=j)
         P, query_ys_pred, indices = compute_optimal_transport(torch.Tensor(probs), T=3)
         #I, query_ys_pred, indices = greedy_selection(P, int(P.shape[0]/P.shape[1]))
-        #loss_statistics, _ = label_denoising(support_features, support_ys, query_features, query_ys_pred)
+        loss_statistics, _ = label_denoising(support_features, support_ys, query_features, query_ys_pred)
 
         #query_ys_pred, _ = update_plabels(new_support_features, support_ys, new_query_features)
         #loss_statistics, _ = label_denoising(new_support_features, support_ys, new_query_features, query_ys_pred)
 
-        #un_loss_statistics = loss_statistics[support_ys.shape[0]:]
-        #rank = sp.stats.rankdata(un_loss_statistics.detach().numpy(), method='ordinal')
-        #indices, ys = rank_per_class(support_ys.max() + 1, rank, query_ys_pred, 1)
+        un_loss_statistics = loss_statistics[support_ys.shape[0]:]
+        rank = sp.stats.rankdata(un_loss_statistics.detach().numpy(), method='ordinal')
+        indices, ys = rank_per_class(support_ys.max() + 1, rank, query_ys_pred, 1)
 
         if len(indices)<5:
             #print(ys)
@@ -555,7 +556,7 @@ def compute_optimal_transport(M, T=15,  epsilon=1e-6):
     # normalize this matrix
    # for i in range(100):
     #P = torch.exp(T * P)#.cuda()
-    #for i in range(20):
+   # for i in range(20):
     P = torch.pow(P, T)
         #P = torch.exp(T * P)
         # print(P.view((n_runs, -1)).shape, P.shape,)

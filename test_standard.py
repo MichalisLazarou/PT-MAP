@@ -221,7 +221,7 @@ if __name__ == '__main__':
     n_nfeat = ndatas.size(2)
     # print(ndatas.shape)
     #
-    #
+
     ndatas = scaleEachUnitaryDatas(ndatas)
     ndatas = centerDatas(ndatas)
     # trans-mean-sub
