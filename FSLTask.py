@@ -7,8 +7,9 @@ import torch
 # ========================================================
 #   Usefull paths
 _datasetFeaturesFiles = {"miniimagenet": "./checkpoints/miniImagenet/WideResNet28_10_S2M2_R/last/output.plk",
-                         "cub": "./checkpoints/CUB/WideResNet28_10_S2M2_R/last/output.plk",
+                         "CUB": "./checkpoints/CUB/WideResNet28_10_S2M2_R/last/output.plk",
                          "cifar": "./checkpoints/cifar/WideResNet28_10_S2M2_R/last/output.plk",
+                         "tieredimagenet": "./checkpoints/tieredImagenet/WideResNet28_10_S2M2_R/last/output.plk",
                          "cross": "./checkpoints/cross/WideResNet28_10_S2M2_R/last/output.plk"}
 _cacheDir = "./cache"
 _maxRuns = 1000
@@ -112,7 +113,7 @@ def setRandomStates(cfg):
         dsName, cfg['shot'], cfg['queries'], cfg['ways']))
     if not os.path.exists(rsFile):
         print("{} does not exist, regenerating it...".format(rsFile))
-        np.random.seed(0)
+        np.random.seed(13)
         _randStates = []
         for iRun in range(_maxRuns):
             _randStates.append(np.random.get_state())

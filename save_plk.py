@@ -73,38 +73,41 @@ def extract_feature(val_loader, model, checkpoint_dir, tag='last'):
         return all_info
 
 if __name__ == '__main__':
-	params = parse_args('test')
+    params = parse_args('test')
 
-	loadfile = configs.data_dir[params.dataset] + 'novel.json'
+    loadfile = configs.data_dir[params.dataset] + 'novel.json'
         
-	if params.dataset == 'miniImagenet' or params.dataset == 'CUB':
-	    datamgr       = SimpleDataManager(84, batch_size = 256)
+    if params.dataset == 'miniImagenet' or params.dataset == 'CUB' or params.dataset =='tieredImagenet':
+        datamgr       = SimpleDataManager(84, batch_size = 256)
 
-	novel_loader      = datamgr.get_data_loader(loadfile, aug = False)
+    novel_loader      = datamgr.get_data_loader(loadfile, aug = False)
 
-	checkpoint_dir = '%s/checkpoints/%s/%s_%s' %(configs.save_dir, params.dataset, params.model, params.method)
-	modelfile   = get_resume_file(checkpoint_dir)
+    checkpoint_dir = '%s/checkpoints/%s/%s_%s' %(configs.save_dir, params.dataset, params.model, params.method)
+    modelfile   = get_resume_file(checkpoint_dir)
 
-	if params.model == 'WideResNet28_10':
-	    model = wrn_mixup_model.wrn28_10(num_classes=params.num_classes)
-	elif params.model == 'ResNet18':
-	    model = res_mixup_model.resnet18(num_classes=params.num_classes)
+    if params.model == 'WideResNet28_10':
+        model = wrn_mixup_model.wrn28_10(num_classes=params.num_classes)
+    elif params.model == 'ResNet18':
+        model = res_mixup_model.resnet18(num_classes=params.num_classes)
 
-	model = model.cuda()
-	cudnn.benchmark = True
+    model = model.cuda()
+    cudnn.benchmark = True
 
-	checkpoint = torch.load(modelfile)
-	state = checkpoint['state']
-	state_keys = list(state.keys())
+    checkpoint = torch.load(modelfile)
+    state = checkpoint['state']
+    if params.dataset == 'tieredImagenet':
+        state.pop('module.classifier.L.weight_v', None)
+        state.pop('module.classifier.L.weight_g', None)
+    state_keys = list(state.keys())
 
-	callwrap = False
-	if 'module' in state_keys[0]:
-	    callwrap = True
-	if callwrap:
-	    model = WrappedModel(model)
-	model_dict_load = model.state_dict()
-	model_dict_load.update(state)
-	model.load_state_dict(model_dict_load)
-	model.eval()
-	output_dict=extract_feature(novel_loader, model, checkpoint_dir, tag='last') 
-	print("features saved!")
+    callwrap = False
+    if 'module' in state_keys[0]:
+        callwrap = True
+    if callwrap:
+        model = WrappedModel(model)
+    model_dict_load = model.state_dict()
+    model_dict_load.update(state)
+    model.load_state_dict(model_dict_load)
+    model.eval()
+    output_dict=extract_feature(novel_loader, model, checkpoint_dir, tag='last')
+    print("features saved!")
